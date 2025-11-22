@@ -4,8 +4,26 @@ import './index.css';
 
 function App() {
   // Default text for demonstration
-  const [original, setOriginal] = useState('// Paste original text or code here\n');
-  const [modified, setModified] = useState('// Paste modified text or code here\n');
+  const [original, setOriginal] = useState(`Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+Line 9
+Line 10`);
+  const [modified, setModified] = useState(`Line 1
+Modified Line 2
+Line 3
+Changed Line 4
+Line 5
+Line 6
+Altered Line 7
+Line 8
+Line 9
+Different Line 10`);
 
   return (
     <div className="app-container">
