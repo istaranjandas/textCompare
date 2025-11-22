@@ -8,7 +8,7 @@ function App() {
   const [modified, setModified] = useState('// Paste modified text or code here\n');
 
   return (
-    <div className="app-container" style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#1e1e1e' }}>
+    <div className="app-container">
       <DiffEditorComponent
         original={original}
         modified={modified}
