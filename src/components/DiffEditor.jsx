@@ -7,6 +7,33 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
     const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
     const [totalChanges, setTotalChanges] = useState(0);
 
+    const updateCurrentIndexFromCursor = () => {
+        if (!editorRef.current) return;
+
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        const position = modifiedEditor.getPosition();
+        if (!position) return;
+
+        const lineChanges = editorRef.current.getLineChanges() || [];
+        let newIndex = 0;
+
+        // Find the change that is closest to or contains the current cursor line
+        for (let i = 0; i < lineChanges.length; i++) {
+            const change = lineChanges[i];
+            const startLine = change.modifiedStartLineNumber;
+
+            if (position.lineNumber < startLine) {
+                // Cursor is before this change, so this change is the "next" one effectively,
+                // meaning we are currently at the previous index (or 0 if i=0).
+                break;
+            } else {
+                newIndex = i + 1;
+            }
+        }
+
+        setCurrentChangeIndex(newIndex);
+    };
+
     const handleEditorDidMount = (editor) => {
         editorRef.current = editor;
 
@@ -26,6 +53,11 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         originalEditor.onDidChangeModelContent(() => {
             setTimeout(updateChangeCount, 100);
         });
+
+        // Listen for cursor changes to update the counter
+        modifiedEditor.onDidChangeCursorPosition(() => {
+            updateCurrentIndexFromCursor();
+        });
     };
 
     const updateChangeCount = () => {
@@ -36,14 +68,8 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
             const count = lineChanges.length;
 
             setTotalChanges(count);
-
-            if (count > 0 && currentChangeIndex === 0) {
-                setCurrentChangeIndex(1);
-            } else if (count === 0) {
-                setCurrentChangeIndex(0);
-            } else if (currentChangeIndex > count) {
-                setCurrentChangeIndex(count);
-            }
+            // Initial update of index based on cursor (likely at top)
+            updateCurrentIndexFromCursor();
         } catch (error) {
             console.error('Error getting line changes:', error);
         }
@@ -53,18 +79,35 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         if (!editorRef.current || totalChanges === 0) return;
 
         const lineChanges = editorRef.current.getLineChanges() || [];
-        const nextIndex = currentChangeIndex < totalChanges ? currentChangeIndex + 1 : 1;
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        const position = modifiedEditor.getPosition();
+        const currentLine = position ? position.lineNumber : 1;
 
-        if (lineChanges[nextIndex - 1]) {
-            const change = lineChanges[nextIndex - 1];
+        let nextIndex = -1;
+
+        // Find the first change that starts AFTER the current cursor line
+        for (let i = 0; i < lineChanges.length; i++) {
+            if (lineChanges[i].modifiedStartLineNumber > currentLine) {
+                nextIndex = i;
+                break;
+            }
+        }
+
+        // If no next change found (we are at or past the last one), wrap to first
+        if (nextIndex === -1) {
+            nextIndex = 0;
+        }
+
+        if (lineChanges[nextIndex]) {
+            const change = lineChanges[nextIndex];
             const lineNumber = change.modifiedStartLineNumber || change.originalStartLineNumber || 1;
 
-            const modifiedEditor = editorRef.current.getModifiedEditor();
             modifiedEditor.revealLineInCenter(lineNumber);
             modifiedEditor.setPosition({ lineNumber, column: 1 });
             modifiedEditor.focus();
 
-            setCurrentChangeIndex(nextIndex);
+            // The cursor change listener will update the index, but we can force it for responsiveness
+            setCurrentChangeIndex(nextIndex + 1);
         }
     };
 
@@ -72,18 +115,35 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         if (!editorRef.current || totalChanges === 0) return;
 
         const lineChanges = editorRef.current.getLineChanges() || [];
-        const prevIndex = currentChangeIndex > 1 ? currentChangeIndex - 1 : totalChanges;
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        const position = modifiedEditor.getPosition();
+        const currentLine = position ? position.lineNumber : 1;
 
-        if (lineChanges[prevIndex - 1]) {
-            const change = lineChanges[prevIndex - 1];
+        let prevIndex = -1;
+
+        // Find the last change that starts BEFORE the current cursor line
+        for (let i = lineChanges.length - 1; i >= 0; i--) {
+            if (lineChanges[i].modifiedStartLineNumber < currentLine) {
+                prevIndex = i;
+                break;
+            }
+        }
+
+        // If no previous change found (we are before the first one), wrap to last
+        if (prevIndex === -1) {
+            prevIndex = lineChanges.length - 1;
+        }
+
+        if (lineChanges[prevIndex]) {
+            const change = lineChanges[prevIndex];
             const lineNumber = change.modifiedStartLineNumber || change.originalStartLineNumber || 1;
 
-            const modifiedEditor = editorRef.current.getModifiedEditor();
             modifiedEditor.revealLineInCenter(lineNumber);
             modifiedEditor.setPosition({ lineNumber, column: 1 });
             modifiedEditor.focus();
 
-            setCurrentChangeIndex(prevIndex);
+            // The cursor change listener will update the index
+            setCurrentChangeIndex(prevIndex + 1);
         }
     };
 
