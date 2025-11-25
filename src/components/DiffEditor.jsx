@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import './DiffEditor.css';
 
-const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'vs-dark' }) => {
+const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'vs-dark', onOriginalChange, onModifiedChange }) => {
     const editorRef = useRef(null);
     const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
     const [totalChanges, setTotalChanges] = useState(0);
@@ -48,10 +48,16 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
 
         modifiedEditor.onDidChangeModelContent(() => {
             setTimeout(updateChangeCount, 100);
+            if (onModifiedChange) {
+                onModifiedChange(modifiedEditor.getValue());
+            }
         });
 
         originalEditor.onDidChangeModelContent(() => {
             setTimeout(updateChangeCount, 100);
+            if (onOriginalChange) {
+                onOriginalChange(originalEditor.getValue());
+            }
         });
 
         // Listen for cursor changes to update the counter
