@@ -1,6 +1,6 @@
 .diff-navigation-toolbar {
     position: fixed;
-    top: 20px;
+    top: 60px;
     right: 20px;
     display: flex;
     align-items: center;
@@ -9,7 +9,7 @@
     border: 2px solid #FFFFFF;
     padding: 8px 12px;
     border-radius: 4px;
-    z-index: 1000;
+    z-index: 900;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 

@@ -7,6 +7,10 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
     const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
     const [totalChanges, setTotalChanges] = useState(0);
 
+    // Use initial values for the DiffEditor to prevent it from re-updating the model on every keystroke
+    // which causes the cursor to jump to the start.
+    const [initialValues] = useState({ original, modified });
+
     const updateCurrentIndexFromCursor = () => {
         if (!editorRef.current) return;
 
@@ -32,6 +36,21 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         }
 
         setCurrentChangeIndex(newIndex);
+    };
+
+    const updateChangeCount = () => {
+        if (!editorRef.current) return;
+
+        try {
+            const lineChanges = editorRef.current.getLineChanges() || [];
+            const count = lineChanges.length;
+
+            setTotalChanges(count);
+            // Initial update of index based on cursor (likely at top)
+            updateCurrentIndexFromCursor();
+        } catch (error) {
+            console.error('Error getting line changes:', error);
+        }
     };
 
     const handleEditorDidMount = (editor) => {
@@ -64,21 +83,6 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         modifiedEditor.onDidChangeCursorPosition(() => {
             updateCurrentIndexFromCursor();
         });
-    };
-
-    const updateChangeCount = () => {
-        if (!editorRef.current) return;
-
-        try {
-            const lineChanges = editorRef.current.getLineChanges() || [];
-            const count = lineChanges.length;
-
-            setTotalChanges(count);
-            // Initial update of index based on cursor (likely at top)
-            updateCurrentIndexFromCursor();
-        } catch (error) {
-            console.error('Error getting line changes:', error);
-        }
     };
 
     const goToNextChange = () => {
@@ -153,14 +157,34 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         }
     };
 
+    useEffect(() => {
+        if (!editorRef.current) return;
+
+        const originalEditor = editorRef.current.getOriginalEditor();
+        if (originalEditor && originalEditor.getValue() !== original) {
+            // Only update if the content is different (e.g. "Clear Screen")
+            // This prevents overwriting the user's typing state
+            originalEditor.setValue(original);
+        }
+    }, [original]);
+
+    useEffect(() => {
+        if (!editorRef.current) return;
+
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        if (modifiedEditor && modifiedEditor.getValue() !== modified) {
+            modifiedEditor.setValue(modified);
+        }
+    }, [modified]);
+
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div style={{ position: 'relative', width: '100%', height: '100%', direction: 'ltr', textAlign: 'left' }}>
             <DiffEditor
                 height="100vh"
                 width="100vw"
                 language={language}
-                original={original}
-                modified={modified}
+                original={initialValues.original}
+                modified={initialValues.modified}
                 theme={theme}
                 onMount={handleEditorDidMount}
                 options={{
@@ -171,6 +195,7 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
                     readOnly: false,
                     originalEditable: true,
                     wordWrap: 'on',
+                    fontSize: 12,
                 }}
             />
             {totalChanges > 0 && (

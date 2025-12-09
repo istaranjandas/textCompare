@@ -9,28 +9,30 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  background: #000000;
-  border: 2px solid #FFFFFF;
-  color: #FFFFFF;
-  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 12px;
   border-radius: 4px;
   font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 12px;
   cursor: pointer;
   z-index: 1000;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .floating-clear-btn:hover {
-  background: #333333;
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.8);
+  color: #FFFFFF;
+  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .floating-clear-btn:active {
-  transform: scale(0.95);
+  transform: translateY(2px);
 }
