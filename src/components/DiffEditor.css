@@ -1,49 +1,211 @@
-.diff-navigation-toolbar {
-    position: fixed;
-    top: 60px;
-    right: 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #000000;
-    border: 2px solid #FFFFFF;
-    padding: 8px 12px;
-    border-radius: 4px;
-    z-index: 900;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+.diff-editor-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
 }
 
+.diff-status-panel {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: #000000;
+  border-bottom: 1px solid #222;
+  position: relative;
+  z-index: 10;
+  min-height: 48px;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-group.full-width {
+  width: 100%;
+}
+
+.toolbar-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: #333;
+  margin: 0 4px;
+}
+
+.spacer {
+  flex-grow: 1;
+}
+
+/* Button Styles */
 .nav-button {
-    background: #FFFFFF;
-    color: #000000;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 2px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .nav-button:hover {
-    background: #CCCCCC;
-    transform: scale(1.05);
+  background: #2a2a2a;
+  border-color: #444;
 }
 
-.nav-button:active {
-    transform: scale(0.95);
+.nav-button.primary {
+  background: #111;
+  color: #f8fafc;
+  border-color: #444;
 }
 
-.change-counter {
-    color: #FFFFFF;
-    font-family: monospace;
-    font-size: 14px;
-    font-weight: bold;
-    min-width: 50px;
-    text-align: center;
-    user-select: none;
+.nav-button.primary:hover {
+  background: #1a1a1a;
+  border-color: #666;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
+}
+
+.nav-button.secondary {
+  color: #94a3b8;
+}
+
+.nav-button.secondary:hover {
+  color: #f8fafc;
+}
+
+/* Icon Button Styles */
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  background: #1a1a1a;
+  color: #f8fafc;
+  border-color: #333;
+}
+
+.icon-button.close-btn:hover {
+  background: #451a1a;
+  color: #ff6b6b;
+  border-color: #632a2a;
+}
+
+/* Counter Pill */
+.change-counter-pill {
+  background: #111;
+  color: #f8fafc;
+  border: 1px solid #333;
+  border-radius: 100px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  min-width: 60px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Search UI */
+.toolbar-search-container {
+  display: flex;
+  align-items: center;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0 8px;
+  flex-grow: 1;
+  max-width: 400px;
+  transition: border-color 0.2s ease;
+}
+
+.toolbar-search-container:focus-within {
+  border-color: #3b82f6;
+}
+
+.search-icon-wrapper {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.search-input {
+  background: transparent;
+  color: #f8fafc;
+  border: none;
+  padding: 8px 0;
+  font-size: 13px;
+  width: 100%;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.empty-diff-state {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Monaco Overrides */
+.diff-editor-shell .monaco-diff-editor,
+.diff-editor-shell .monaco-editor {
+  position: relative;
+  z-index: 1;
+}
+
+.diff-editor-shell .editor-widget.find-widget {
+  display: none !important;
+}
+
+.custom-search-match-highlight {
+  background-color: rgba(255, 165, 0, 0.4);
+  border-radius: 2px;
+}
+
+@media (max-width: 600px) {
+  .diff-status-panel {
+    padding: 8px;
+  }
+  
+  .toolbar-group {
+    gap: 8px;
+  }
+  
+  .nav-button {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .spacer {
+    display: none;
+  }
 }

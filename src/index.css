@@ -26,11 +26,6 @@ body {
   color: var(--text-color);
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 12px;
@@ -50,15 +45,10 @@ button {
   background: #555555;
 }
 
-/* App Container */
-.app-container {
-  background-color: var(--bg-color) !important;
-  color: var(--text-color) !important;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 /* Overrides for Monaco Editor to fit the theme if needed */

@@ -1,17 +1,167 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import './DiffEditor.css';
+import { getChangeLineNumber } from './diffNavigation';
 
-const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'vs-dark', onOriginalChange, onModifiedChange }) => {
+const debugLog = (hypothesisId, location, message, data = {}, runId = 'initial') => {
+    fetch('http://127.0.0.1:7313/ingest/40e2c925-eb71-41f4-85e0-62459d97388e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '3f050e' }, body: JSON.stringify({ sessionId: '3f050e', runId, hypothesisId, location, message, data, timestamp: Date.now() }) }).catch(() => {});
+};
+
+const SearchIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+    </svg>
+);
+
+const UpIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m18 15-6-6-6 6" />
+    </svg>
+);
+
+const DownIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m6 9 6 6 6-6" />
+    </svg>
+);
+
+const CloseIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </svg>
+);
+
+const DiffEditorComponent = ({
+    original,
+    modified,
+    language = 'text',
+    theme = 'vs-dark',
+    onOriginalChange,
+    onModifiedChange,
+    onDiffStatsChange,
+    onClear,
+    onUndoClear
+}) => {
     const editorRef = useRef(null);
+    const editorContainerRef = useRef(null);
+    const searchInputRef = useRef(null);
+    const disposablesRef = useRef([]);
+    const searchDecorationsRef = useRef({ original: null, modified: null });
+
     const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
     const [totalChanges, setTotalChanges] = useState(0);
 
-    // Use initial values for the DiffEditor to prevent it from re-updating the model on every keystroke
-    // which causes the cursor to jump to the start.
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchMatches, setSearchMatches] = useState([]);
+    const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+
     const [initialValues] = useState({ original, modified });
 
-    const updateCurrentIndexFromCursor = () => {
+    const clearSearchDecorations = useCallback(() => {
+        if (searchDecorationsRef.current.original) {
+            searchDecorationsRef.current.original.clear();
+        }
+        if (searchDecorationsRef.current.modified) {
+            searchDecorationsRef.current.modified.clear();
+        }
+    }, []);
+
+    const focusMatch = useCallback((match) => {
+        if (!match || !match.editor) return;
+        const editor = match.editor;
+        editor.revealRangeInCenter(match.range);
+        editor.setSelection(match.range);
+    }, []);
+
+    const performSearch = useCallback((query) => {
+        if (!editorRef.current) return;
+        const originalEditor = editorRef.current.getOriginalEditor();
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        
+        const originalModel = originalEditor.getModel();
+        const modifiedModel = modifiedEditor.getModel();
+
+        if (!query) {
+            clearSearchDecorations();
+            setSearchMatches([]);
+            setCurrentSearchIndex(-1);
+            return;
+        }
+
+        const matchesOrig = originalModel ? originalModel.findMatches(query, false, false, false, null, true) : [];
+        const matchesMod = modifiedModel ? modifiedModel.findMatches(query, false, false, false, null, true) : [];
+
+        const allMatches = [
+            ...matchesOrig.map(m => ({ ...m, editorType: 'original', editor: originalEditor })),
+            ...matchesMod.map(m => ({ ...m, editorType: 'modified', editor: modifiedEditor }))
+        ];
+
+        setSearchMatches(allMatches);
+
+        const createDecorations = (matches) => matches.map(m => ({
+            range: m.range,
+            options: {
+                className: 'custom-search-match-highlight',
+                overviewRuler: { color: 'rgba(255, 165, 0, 0.8)', position: 1 }
+            }
+        }));
+
+        if (!searchDecorationsRef.current.original) searchDecorationsRef.current.original = originalEditor.createDecorationsCollection();
+        if (!searchDecorationsRef.current.modified) searchDecorationsRef.current.modified = modifiedEditor.createDecorationsCollection();
+
+        searchDecorationsRef.current.original.set(createDecorations(matchesOrig));
+        searchDecorationsRef.current.modified.set(createDecorations(matchesMod));
+
+        if (allMatches.length > 0) {
+            setCurrentSearchIndex(0);
+            focusMatch(allMatches[0]);
+        } else {
+            setCurrentSearchIndex(-1);
+        }
+    }, [clearSearchDecorations, focusMatch]);
+
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+        performSearch(e.target.value);
+    };
+
+    const goToNextSearchMatch = useCallback(() => {
+        if (searchMatches.length === 0) return;
+        const nextIndex = (currentSearchIndex + 1) % searchMatches.length;
+        setCurrentSearchIndex(nextIndex);
+        focusMatch(searchMatches[nextIndex]);
+    }, [currentSearchIndex, searchMatches, focusMatch]);
+
+    const goToPrevSearchMatch = useCallback(() => {
+        if (searchMatches.length === 0) return;
+        const prevIndex = (currentSearchIndex - 1 + searchMatches.length) % searchMatches.length;
+        setCurrentSearchIndex(prevIndex);
+        focusMatch(searchMatches[prevIndex]);
+    }, [currentSearchIndex, searchMatches, focusMatch]);
+
+    const closeSearch = useCallback(() => {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+        clearSearchDecorations();
+        setSearchMatches([]);
+        setCurrentSearchIndex(-1);
+        if (editorRef.current) {
+            editorRef.current.getModifiedEditor().focus();
+        }
+    }, [clearSearchDecorations]);
+
+    const openSearch = useCallback(() => {
+        setIsSearchOpen(true);
+        setTimeout(() => {
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+                searchInputRef.current.select();
+            }
+        }, 10);
+    }, []);
+
+    const updateCurrentIndexFromCursor = useCallback(() => {
         if (!editorRef.current) return;
 
         const modifiedEditor = editorRef.current.getModifiedEditor();
@@ -21,14 +171,11 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         const lineChanges = editorRef.current.getLineChanges() || [];
         let newIndex = 0;
 
-        // Find the change that is closest to or contains the current cursor line
         for (let i = 0; i < lineChanges.length; i++) {
             const change = lineChanges[i];
-            const startLine = change.modifiedStartLineNumber;
+            const startLine = getChangeLineNumber(change);
 
             if (position.lineNumber < startLine) {
-                // Cursor is before this change, so this change is the "next" one effectively,
-                // meaning we are currently at the previous index (or 0 if i=0).
                 break;
             } else {
                 newIndex = i + 1;
@@ -36,9 +183,9 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         }
 
         setCurrentChangeIndex(newIndex);
-    };
+    }, []);
 
-    const updateChangeCount = () => {
+    const updateChangeCount = useCallback(() => {
         if (!editorRef.current) return;
 
         try {
@@ -46,115 +193,138 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
             const count = lineChanges.length;
 
             setTotalChanges(count);
-            // Initial update of index based on cursor (likely at top)
             updateCurrentIndexFromCursor();
         } catch (error) {
             console.error('Error getting line changes:', error);
         }
-    };
+    }, [updateCurrentIndexFromCursor]);
 
-    const handleEditorDidMount = (editor) => {
+    const navigateToChange = useCallback((targetIndex) => {
+        if (!editorRef.current) return;
+
+        const lineChanges = editorRef.current.getLineChanges() || [];
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        const targetChange = lineChanges[targetIndex];
+        if (!targetChange) return;
+
+        const lineNumber = getChangeLineNumber(targetChange);
+        const activeElement = document.activeElement;
+        const shouldKeepEditorFocus =
+            Boolean(activeElement) && editorContainerRef.current?.contains(activeElement);
+
+        modifiedEditor.revealLineInCenter(lineNumber);
+        if (shouldKeepEditorFocus) {
+            modifiedEditor.setPosition({ lineNumber, column: 1 });
+            modifiedEditor.focus();
+        }
+
+        setCurrentChangeIndex(targetIndex + 1);
+    }, []);
+
+    const goToNextChange = useCallback(() => {
+        if (!editorRef.current) return;
+
+        const lineChanges = editorRef.current.getLineChanges() || [];
+        if (lineChanges.length === 0) return;
+        const nextIndex = currentChangeIndex <= 0 || currentChangeIndex >= lineChanges.length
+            ? 0
+            : currentChangeIndex;
+        navigateToChange(nextIndex);
+    }, [currentChangeIndex, navigateToChange]);
+
+    const goToPreviousChange = useCallback(() => {
+        if (!editorRef.current) return;
+
+        const lineChanges = editorRef.current.getLineChanges() || [];
+        if (lineChanges.length === 0) return;
+        const previousIndex = currentChangeIndex <= 1
+            ? lineChanges.length - 1
+            : currentChangeIndex - 2;
+        navigateToChange(previousIndex);
+    }, [currentChangeIndex, navigateToChange]);
+
+    const handleEditorDidMount = (editor, monaco) => {
         editorRef.current = editor;
+        disposablesRef.current = [];
 
-        // Wait a bit for the diff to be computed, then update change count
-        setTimeout(() => {
-            updateChangeCount();
-        }, 500);
-
-        // Also listen for content changes
         const modifiedEditor = editor.getModifiedEditor();
         const originalEditor = editor.getOriginalEditor();
+        const register = (disposable) => {
+            if (disposable) {
+                disposablesRef.current.push(disposable);
+            }
+        };
 
-        modifiedEditor.onDidChangeModelContent(() => {
-            setTimeout(updateChangeCount, 100);
+        register(editor.onDidUpdateDiff(() => {
+            updateChangeCount();
+        }));
+
+        register(modifiedEditor.onDidChangeModelContent(() => {
             if (onModifiedChange) {
                 onModifiedChange(modifiedEditor.getValue());
             }
-        });
+        }));
 
-        originalEditor.onDidChangeModelContent(() => {
-            setTimeout(updateChangeCount, 100);
+        register(originalEditor.onDidChangeModelContent(() => {
             if (onOriginalChange) {
                 onOriginalChange(originalEditor.getValue());
             }
-        });
+        }));
 
-        // Listen for cursor changes to update the counter
-        modifiedEditor.onDidChangeCursorPosition(() => {
+        register(modifiedEditor.onDidChangeCursorPosition(() => {
             updateCurrentIndexFromCursor();
+        }));
+
+        register(modifiedEditor.onDidFocusEditorText(() => {
+            debugLog('H2', 'DiffEditor.jsx:150', 'modified editor focused', {
+                activeTag: document.activeElement?.tagName || null,
+                activeClass: document.activeElement?.className || null
+            });
+        }));
+
+        register(modifiedEditor.onDidBlurEditorText(() => {
+            debugLog('H2', 'DiffEditor.jsx:159', 'modified editor blurred', {
+                activeTag: document.activeElement?.tagName || null,
+                activeClass: document.activeElement?.className || null
+            });
+        }));
+
+        const customFindBinding = monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF;
+        
+        modifiedEditor.addAction({
+            id: 'custom-search-action',
+            label: 'Custom Search',
+            keybindings: [customFindBinding],
+            run: () => openSearch()
         });
-    };
 
-    const goToNextChange = () => {
-        if (!editorRef.current || totalChanges === 0) return;
+        originalEditor.addAction({
+            id: 'custom-search-action-orig',
+            label: 'Custom Search',
+            keybindings: [customFindBinding],
+            run: () => openSearch()
+        });
 
-        const lineChanges = editorRef.current.getLineChanges() || [];
-        const modifiedEditor = editorRef.current.getModifiedEditor();
-        const position = modifiedEditor.getPosition();
-        const currentLine = position ? position.lineNumber : 1;
-
-        let nextIndex = -1;
-
-        // Find the first change that starts AFTER the current cursor line
-        for (let i = 0; i < lineChanges.length; i++) {
-            if (lineChanges[i].modifiedStartLineNumber > currentLine) {
-                nextIndex = i;
-                break;
+        register({
+            dispose: () => {
+                clearSearchDecorations();
             }
-        }
+        });
 
-        // If no next change found (we are at or past the last one), wrap to first
-        if (nextIndex === -1) {
-            nextIndex = 0;
-        }
+        modifiedEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.DownArrow, () => {
+            goToNextChange();
+        });
+        modifiedEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.UpArrow, () => {
+            goToPreviousChange();
+        });
+        originalEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.DownArrow, () => {
+            goToNextChange();
+        });
+        originalEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.UpArrow, () => {
+            goToPreviousChange();
+        });
 
-        if (lineChanges[nextIndex]) {
-            const change = lineChanges[nextIndex];
-            const lineNumber = change.modifiedStartLineNumber || change.originalStartLineNumber || 1;
-
-            modifiedEditor.revealLineInCenter(lineNumber);
-            modifiedEditor.setPosition({ lineNumber, column: 1 });
-            modifiedEditor.focus();
-
-            // The cursor change listener will update the index, but we can force it for responsiveness
-            setCurrentChangeIndex(nextIndex + 1);
-        }
-    };
-
-    const goToPreviousChange = () => {
-        if (!editorRef.current || totalChanges === 0) return;
-
-        const lineChanges = editorRef.current.getLineChanges() || [];
-        const modifiedEditor = editorRef.current.getModifiedEditor();
-        const position = modifiedEditor.getPosition();
-        const currentLine = position ? position.lineNumber : 1;
-
-        let prevIndex = -1;
-
-        // Find the last change that starts BEFORE the current cursor line
-        for (let i = lineChanges.length - 1; i >= 0; i--) {
-            if (lineChanges[i].modifiedStartLineNumber < currentLine) {
-                prevIndex = i;
-                break;
-            }
-        }
-
-        // If no previous change found (we are before the first one), wrap to last
-        if (prevIndex === -1) {
-            prevIndex = lineChanges.length - 1;
-        }
-
-        if (lineChanges[prevIndex]) {
-            const change = lineChanges[prevIndex];
-            const lineNumber = change.modifiedStartLineNumber || change.originalStartLineNumber || 1;
-
-            modifiedEditor.revealLineInCenter(lineNumber);
-            modifiedEditor.setPosition({ lineNumber, column: 1 });
-            modifiedEditor.focus();
-
-            // The cursor change listener will update the index
-            setCurrentChangeIndex(prevIndex + 1);
-        }
+        requestAnimationFrame(updateChangeCount);
     };
 
     useEffect(() => {
@@ -162,11 +332,11 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
 
         const originalEditor = editorRef.current.getOriginalEditor();
         if (originalEditor && originalEditor.getValue() !== original) {
-            // Only update if the content is different (e.g. "Clear Screen")
-            // This prevents overwriting the user's typing state
             originalEditor.setValue(original);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            if (isSearchOpen) performSearch(searchQuery);
         }
-    }, [original]);
+    }, [original, isSearchOpen, performSearch, searchQuery]);
 
     useEffect(() => {
         if (!editorRef.current) return;
@@ -174,14 +344,125 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
         const modifiedEditor = editorRef.current.getModifiedEditor();
         if (modifiedEditor && modifiedEditor.getValue() !== modified) {
             modifiedEditor.setValue(modified);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            if (isSearchOpen) performSearch(searchQuery);
         }
-    }, [modified]);
+    }, [modified, isSearchOpen, performSearch, searchQuery]);
+
+    useEffect(() => {
+        onDiffStatsChange?.({
+            totalChanges,
+            currentChangeIndex
+        });
+    }, [currentChangeIndex, onDiffStatsChange, totalChanges]);
+
+    useEffect(() => {
+        return () => {
+            disposablesRef.current.forEach((disposable) => {
+                disposable?.dispose?.();
+            });
+            disposablesRef.current = [];
+        };
+    }, []);
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            closeSearch();
+        } else if (e.key === 'Enter') {
+            if (e.shiftKey) {
+                goToPrevSearchMatch();
+            } else {
+                goToNextSearchMatch();
+            }
+        }
+    };
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%', direction: 'ltr', textAlign: 'left' }}>
+        <section className="diff-editor-shell" ref={editorContainerRef} aria-label="Text comparison editor">
+            <div className="diff-status-panel" aria-live="polite">
+                {isSearchOpen ? (
+                    <div className="toolbar-group full-width">
+                        <div className="toolbar-actions-group">
+                            <button className="nav-button primary" onClick={onClear}>Clear All</button>
+                            {onUndoClear && <button className="nav-button secondary" onClick={onUndoClear}>Undo Clear</button>}
+                        </div>
+
+                        <div className="spacer" />
+
+                        <div className="toolbar-nav-group">
+                            <div className="toolbar-search-container">
+                                <span className="search-icon-wrapper"><SearchIcon /></span>
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    className="search-input"
+                                    placeholder="Find..."
+                                    value={searchQuery}
+                                    onChange={handleSearchChange}
+                                    onKeyDown={handleSearchKeyDown}
+                                    aria-label="Search text"
+                                />
+                            </div>
+                            <span className="change-counter-pill" role="status">
+                                {searchMatches.length > 0 ? `${currentSearchIndex + 1} of ${searchMatches.length}` : 'No results'}
+                            </span>
+                            <button className="icon-button" onClick={goToPrevSearchMatch} title="Previous Match (Shift+Enter)"><UpIcon /></button>
+                            <button className="icon-button" onClick={goToNextSearchMatch} title="Next Match (Enter)"><DownIcon /></button>
+                            <button className="icon-button close-btn" onClick={closeSearch} title="Close Search (Esc)"><CloseIcon /></button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="toolbar-group full-width">
+                        <div className="toolbar-actions-group">
+                            <button className="nav-button primary" onClick={onClear}>Clear All</button>
+                            {onUndoClear && <button className="nav-button secondary" onClick={onUndoClear}>Undo Clear</button>}
+                        </div>
+
+                        <div className="spacer" />
+
+                        <div className="toolbar-nav-group">
+                            {totalChanges === 0 && (
+                                <p className="empty-diff-state">No differences detected.</p>
+                            )}
+                            {totalChanges > 0 && (
+                                <>
+                                    <button
+                                        className="icon-button"
+                                        onClick={goToPreviousChange}
+                                        title="Previous difference (Alt+Up)"
+                                        aria-label="Go to previous difference"
+                                    >
+                                        <UpIcon />
+                                    </button>
+                                    <span className="change-counter-pill" role="status">
+                                        {currentChangeIndex || 1} of {totalChanges}
+                                    </span>
+                                    <button
+                                        className="icon-button"
+                                        onClick={goToNextChange}
+                                        title="Next difference (Alt+Down)"
+                                        aria-label="Go to next difference"
+                                    >
+                                        <DownIcon />
+                                    </button>
+                                    <div className="toolbar-separator" />
+                                </>
+                            )}
+                            <button
+                                className="icon-button"
+                                onClick={openSearch}
+                                title="Search (Ctrl+F)"
+                                aria-label="Search"
+                            >
+                                <SearchIcon />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
             <DiffEditor
-                height="100vh"
-                width="100vw"
+                height="100%"
+                width="100%"
                 language={language}
                 original={initialValues.original}
                 modified={initialValues.modified}
@@ -196,30 +477,11 @@ const DiffEditorComponent = ({ original, modified, language = 'text', theme = 'v
                     originalEditable: true,
                     wordWrap: 'on',
                     fontSize: 12,
+                    fixedOverflowWidgets: true,
+                    renderMarginRevertIcon: false,
                 }}
             />
-            {totalChanges > 0 && (
-                <div className="diff-navigation-toolbar">
-                    <button
-                        className="nav-button"
-                        onClick={goToPreviousChange}
-                        title="Previous Change (↑)"
-                    >
-                        ↑
-                    </button>
-                    <span className="change-counter">
-                        {currentChangeIndex}/{totalChanges}
-                    </span>
-                    <button
-                        className="nav-button"
-                        onClick={goToNextChange}
-                        title="Next Change (↓)"
-                    >
-                        ↓
-                    </button>
-                </div>
-            )}
-        </div>
+        </section>
     );
 };
 
