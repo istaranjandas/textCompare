@@ -10,8 +10,8 @@
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background: #000000;
-  border-bottom: 1px solid #222;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-strong);
   position: relative;
   z-index: 10;
   min-height: 48px;
@@ -42,7 +42,7 @@
 .toolbar-separator {
   width: 1px;
   height: 20px;
-  background: #333;
+  background: var(--border-strong);
   margin: 0 4px;
 }
 
@@ -52,9 +52,12 @@
 
 /* Button Styles */
 .nav-button {
-  background: #1a1a1a;
-  color: #fff;
-  border: 1px solid #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--hover-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
@@ -65,28 +68,34 @@
 }
 
 .nav-button:hover {
-  background: #2a2a2a;
-  border-color: #444;
+  background: var(--hover-strong);
+}
+
+.nav-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nav-button.active {
+  background: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+}
+
+.nav-button.active:hover {
+  filter: brightness(1.1);
 }
 
 .nav-button.primary {
-  background: #111;
-  color: #f8fafc;
-  border-color: #444;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  border-color: var(--border-strong);
 }
 
 .nav-button.primary:hover {
-  background: #1a1a1a;
-  border-color: #666;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
-}
-
-.nav-button.secondary {
-  color: #94a3b8;
-}
-
-.nav-button.secondary:hover {
-  color: #f8fafc;
+  background: var(--hover-color);
+  border-color: var(--text-secondary);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
 }
 
 /* Icon Button Styles */
@@ -95,7 +104,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-secondary);
   border: 1px solid transparent;
   border-radius: 4px;
   width: 32px;
@@ -105,22 +114,28 @@
 }
 
 .icon-button:hover {
-  background: #1a1a1a;
-  color: #f8fafc;
-  border-color: #333;
+  background: var(--hover-color);
+  color: var(--text-color);
+  border-color: var(--border-strong);
 }
 
 .icon-button.close-btn:hover {
-  background: #451a1a;
-  color: #ff6b6b;
-  border-color: #632a2a;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border-color: var(--danger-border);
+}
+
+.theme-toggle-btn:hover {
+  color: var(--text-color);
+  border-color: var(--border-strong);
+  background: var(--hover-color);
 }
 
 /* Counter Pill */
 .change-counter-pill {
-  background: #111;
-  color: #f8fafc;
-  border: 1px solid #333;
+  background: var(--panel-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-strong);
   border-radius: 100px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
@@ -135,21 +150,21 @@
 .toolbar-search-container {
   display: flex;
   align-items: center;
-  background: #111;
-  border: 1px solid #333;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 0 8px;
   flex-grow: 1;
-  max-width: 400px;
+  max-width: 300px;
   transition: border-color 0.2s ease;
 }
 
 .toolbar-search-container:focus-within {
-  border-color: #3b82f6;
+  border-color: var(--accent-color);
 }
 
 .search-icon-wrapper {
-  color: #64748b;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   margin-right: 8px;
@@ -157,7 +172,7 @@
 
 .search-input {
   background: transparent;
-  color: #f8fafc;
+  color: var(--text-color);
   border: none;
   padding: 8px 0;
   font-size: 13px;
@@ -170,7 +185,7 @@
 
 .empty-diff-state {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-style: italic;
 }
@@ -182,12 +197,26 @@
   z-index: 1;
 }
 
+/* Forced visible Sash with stronger grey */
+.diff-editor-shell .monaco-diff-editor .sash.vertical,
+.diff-editor-shell .monaco-editor .sash.vertical {
+  background-color: var(--border-strong) !important;
+  opacity: 1 !important;
+  width: 1px !important;
+  z-index: 100 !important;
+  display: block !important;
+}
+
+.diff-editor-shell .monaco-diff-editor .sash.vertical:hover {
+  background-color: var(--accent-color) !important;
+}
+
 .diff-editor-shell .editor-widget.find-widget {
   display: none !important;
 }
 
 .custom-search-match-highlight {
-  background-color: rgba(255, 165, 0, 0.4);
+  background-color: var(--search-match);
   border-radius: 2px;
 }
 
@@ -199,13 +228,13 @@
   .toolbar-group {
     gap: 8px;
   }
+
+  .spacer {
+    display: none;
+  }
   
   .nav-button {
     padding: 6px 8px;
     font-size: 11px;
-  }
-  
-  .spacer {
-    display: none;
   }
 }

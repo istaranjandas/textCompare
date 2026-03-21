@@ -27,11 +27,24 @@ const CloseIcon = () => (
     </svg>
 );
 
+const SunIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+);
+
+const MoonIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+    </svg>
+);
+
 const DiffEditorComponent = ({
     original,
     modified,
     language = 'text',
-    theme = 'vs-dark',
+    theme = 'dark',
+    toggleTheme,
     onOriginalChange,
     onModifiedChange,
     onDiffStatsChange,
@@ -53,6 +66,8 @@ const DiffEditorComponent = ({
     const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
 
     const [initialValues] = useState({ original, modified });
+
+    const monacoTheme = theme === 'dark' ? 'vs-dark' : 'light';
 
     const clearSearchDecorations = useCallback(() => {
         if (searchDecorationsRef.current.original) {
@@ -321,9 +336,8 @@ const DiffEditorComponent = ({
         const originalEditor = editorRef.current.getOriginalEditor();
         if (originalEditor && originalEditor.getValue() !== original) {
             originalEditor.setValue(original);
-            if (isSearchOpen) performSearch(searchQuery);
         }
-    }, [original, isSearchOpen, performSearch, searchQuery]);
+    }, [original]);
 
     useEffect(() => {
         if (!editorRef.current) return;
@@ -331,9 +345,15 @@ const DiffEditorComponent = ({
         const modifiedEditor = editorRef.current.getModifiedEditor();
         if (modifiedEditor && modifiedEditor.getValue() !== modified) {
             modifiedEditor.setValue(modified);
-            if (isSearchOpen) performSearch(searchQuery);
         }
-    }, [modified, isSearchOpen, performSearch, searchQuery]);
+    }, [modified]);
+
+    useEffect(() => {
+        if (isSearchOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            performSearch(searchQuery);
+        }
+    }, [original, modified, searchQuery, isSearchOpen, performSearch]);
 
     useEffect(() => {
         onDiffStatsChange?.({
@@ -395,6 +415,10 @@ const DiffEditorComponent = ({
                             <button className="icon-button" onClick={goToPrevSearchMatch} title="Previous Match (Shift+Enter)"><UpIcon /></button>
                             <button className="icon-button" onClick={goToNextSearchMatch} title="Next Match (Enter)"><DownIcon /></button>
                             <button className="icon-button close-btn" onClick={closeSearch} title="Close Search (Esc)"><CloseIcon /></button>
+                            <div className="toolbar-separator" />
+                            <button className="icon-button theme-toggle-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+                                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                            </button>
                         </div>
                     </div>
                 ) : (
@@ -441,6 +465,10 @@ const DiffEditorComponent = ({
                             >
                                 <SearchIcon />
                             </button>
+                            <div className="toolbar-separator" />
+                            <button className="icon-button theme-toggle-btn" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+                                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                            </button>
                         </div>
                     </div>
                 )}
@@ -451,7 +479,7 @@ const DiffEditorComponent = ({
                 language={language}
                 original={initialValues.original}
                 modified={initialValues.modified}
-                theme={theme}
+                theme={monacoTheme}
                 onMount={handleEditorDidMount}
                 options={{
                     renderSideBySide: true,

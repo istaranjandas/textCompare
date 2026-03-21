@@ -6,15 +6,43 @@
   color-scheme: dark;
   --bg-color: #000000;
   --text-color: #ffffff;
-  --border-color: #333333;
+  --text-secondary: #94a3b8;
+  --border-color: #222222;
+  --border-strong: #333333;
   --hover-color: #1a1a1a;
+  --hover-strong: #2a2a2a;
   --scrollbar-thumb: #333333;
   --scrollbar-track: #000000;
+  --panel-bg: #111111;
+  --accent-color: #3b82f6;
+  --danger-bg: #451a1a;
+  --danger-color: #ff6b6b;
+  --danger-border: #632a2a;
+  --search-match: rgba(255, 165, 0, 0.4);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-color: #ffffff;
+  --text-color: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --hover-color: #f1f5f9;
+  --hover-strong: #e2e8f0;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-track: #f8fafc;
+  --panel-bg: #ffffff;
+  --accent-color: #2563eb;
+  --danger-bg: #fee2e2;
+  --danger-color: #dc2626;
+  --danger-border: #fecaca;
+  --search-match: rgba(255, 165, 0, 0.6);
 }
 
 body {
@@ -42,7 +70,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555555;
+  background: var(--hover-strong);
 }
 
 *,
@@ -53,9 +81,9 @@ body {
 
 /* Overrides for Monaco Editor to fit the theme if needed */
 .monaco-editor, .monaco-editor-background, .monaco-editor .inputarea.ime-input {
-    background-color: #000000 !important;
+    background-color: var(--bg-color) !important;
 }
 
 .monaco-editor .margin {
-    background-color: #000000 !important;
+    background-color: var(--bg-color) !important;
 }
