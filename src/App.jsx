@@ -6,28 +6,19 @@ import './index.css';
 function App() {
   const [original, setOriginal] = useState('');
   const [modified, setModified] = useState('');
-  const [lastSnapshot, setLastSnapshot] = useState(null);
 
   const handleClear = () => {
     if (!original && !modified) {
       return;
     }
 
-    const shouldClear = window.confirm('Clear both text panes? You can undo once after clearing.');
+    const shouldClear = window.confirm('Clear both text panes?');
     if (!shouldClear) {
       return;
     }
 
-    setLastSnapshot({ original, modified });
     setOriginal('');
     setModified('');
-  };
-
-  const handleUndoClear = () => {
-    if (!lastSnapshot) return;
-    setOriginal(lastSnapshot.original);
-    setModified(lastSnapshot.modified);
-    setLastSnapshot(null);
   };
 
   return (
@@ -40,7 +31,6 @@ function App() {
         onOriginalChange={setOriginal}
         onModifiedChange={setModified}
         onClear={handleClear}
-        onUndoClear={lastSnapshot ? handleUndoClear : null}
       />
     </div>
   );

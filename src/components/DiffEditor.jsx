@@ -3,10 +3,6 @@ import { DiffEditor } from '@monaco-editor/react';
 import './DiffEditor.css';
 import { getChangeLineNumber } from './diffNavigation';
 
-const debugLog = (hypothesisId, location, message, data = {}, runId = 'initial') => {
-    fetch('http://127.0.0.1:7313/ingest/40e2c925-eb71-41f4-85e0-62459d97388e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '3f050e' }, body: JSON.stringify({ sessionId: '3f050e', runId, hypothesisId, location, message, data, timestamp: Date.now() }) }).catch(() => {});
-};
-
 const SearchIcon = () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
@@ -39,14 +35,14 @@ const DiffEditorComponent = ({
     onOriginalChange,
     onModifiedChange,
     onDiffStatsChange,
-    onClear,
-    onUndoClear
+    onClear
 }) => {
     const editorRef = useRef(null);
     const editorContainerRef = useRef(null);
     const searchInputRef = useRef(null);
     const disposablesRef = useRef([]);
     const searchDecorationsRef = useRef({ original: null, modified: null });
+    const syncTimeoutRef = useRef(null);
 
     const [currentChangeIndex, setCurrentChangeIndex] = useState(0);
     const [totalChanges, setTotalChanges] = useState(0);
@@ -259,34 +255,25 @@ const DiffEditorComponent = ({
             updateChangeCount();
         }));
 
+        // Debounced state update to handle 30k+ lines smoothly
+        const debounceUpdate = () => {
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+            syncTimeoutRef.current = setTimeout(() => {
+                if (onModifiedChange) onModifiedChange(modifiedEditor.getValue());
+                if (onOriginalChange) onOriginalChange(originalEditor.getValue());
+            }, 250);
+        };
+
         register(modifiedEditor.onDidChangeModelContent(() => {
-            if (onModifiedChange) {
-                onModifiedChange(modifiedEditor.getValue());
-            }
+            debounceUpdate();
         }));
 
         register(originalEditor.onDidChangeModelContent(() => {
-            if (onOriginalChange) {
-                onOriginalChange(originalEditor.getValue());
-            }
+            debounceUpdate();
         }));
 
         register(modifiedEditor.onDidChangeCursorPosition(() => {
             updateCurrentIndexFromCursor();
-        }));
-
-        register(modifiedEditor.onDidFocusEditorText(() => {
-            debugLog('H2', 'DiffEditor.jsx:150', 'modified editor focused', {
-                activeTag: document.activeElement?.tagName || null,
-                activeClass: document.activeElement?.className || null
-            });
-        }));
-
-        register(modifiedEditor.onDidBlurEditorText(() => {
-            debugLog('H2', 'DiffEditor.jsx:159', 'modified editor blurred', {
-                activeTag: document.activeElement?.tagName || null,
-                activeClass: document.activeElement?.className || null
-            });
         }));
 
         const customFindBinding = monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF;
@@ -308,6 +295,7 @@ const DiffEditorComponent = ({
         register({
             dispose: () => {
                 clearSearchDecorations();
+                if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
             }
         });
 
@@ -333,7 +321,6 @@ const DiffEditorComponent = ({
         const originalEditor = editorRef.current.getOriginalEditor();
         if (originalEditor && originalEditor.getValue() !== original) {
             originalEditor.setValue(original);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             if (isSearchOpen) performSearch(searchQuery);
         }
     }, [original, isSearchOpen, performSearch, searchQuery]);
@@ -344,7 +331,6 @@ const DiffEditorComponent = ({
         const modifiedEditor = editorRef.current.getModifiedEditor();
         if (modifiedEditor && modifiedEditor.getValue() !== modified) {
             modifiedEditor.setValue(modified);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             if (isSearchOpen) performSearch(searchQuery);
         }
     }, [modified, isSearchOpen, performSearch, searchQuery]);
@@ -362,6 +348,7 @@ const DiffEditorComponent = ({
                 disposable?.dispose?.();
             });
             disposablesRef.current = [];
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         };
     }, []);
 
@@ -384,7 +371,6 @@ const DiffEditorComponent = ({
                     <div className="toolbar-group full-width">
                         <div className="toolbar-actions-group">
                             <button className="nav-button primary" onClick={onClear}>Clear All</button>
-                            {onUndoClear && <button className="nav-button secondary" onClick={onUndoClear}>Undo Clear</button>}
                         </div>
 
                         <div className="spacer" />
@@ -415,7 +401,6 @@ const DiffEditorComponent = ({
                     <div className="toolbar-group full-width">
                         <div className="toolbar-actions-group">
                             <button className="nav-button primary" onClick={onClear}>Clear All</button>
-                            {onUndoClear && <button className="nav-button secondary" onClick={onUndoClear}>Undo Clear</button>}
                         </div>
 
                         <div className="spacer" />
@@ -470,7 +455,7 @@ const DiffEditorComponent = ({
                 onMount={handleEditorDidMount}
                 options={{
                     renderSideBySide: true,
-                    minimap: { enabled: true },
+                    minimap: { enabled: false }, // Disable minimap for 30k+ line performance
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     readOnly: false,
@@ -479,6 +464,11 @@ const DiffEditorComponent = ({
                     fontSize: 12,
                     fixedOverflowWidgets: true,
                     renderMarginRevertIcon: false,
+                    maxComputationTime: 5000, // Increase diff timeout for large files
+                    fastDiff: true, // Use fast diffing for large files
+                    folding: false, // Disable folding for large file performance
+                    links: false, // Disable link detection for performance
+                    renderValidationDecorations: 'off' // Reduce background work
                 }}
             />
         </section>
